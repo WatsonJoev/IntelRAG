@@ -27,3 +27,19 @@ def test_pptx_parser_supported_extensions():
     from ingestion.parsers.pptx_parser import PPTXParser
     p = PPTXParser()
     assert ".pptx" in p.supported_extensions
+
+
+def test_html_parser_extracts_text():
+    from ingestion.parsers.html_parser import HTMLParser
+    html = b"<html><body><h1>Title</h1><p>Body text here.</p></body></html>"
+    parser = HTMLParser()
+    result = parser.parse(html, "test.html")
+    assert "Title" in result.text
+    assert "Body text here" in result.text
+
+
+def test_html_parser_supported_extensions():
+    from ingestion.parsers.html_parser import HTMLParser
+    p = HTMLParser()
+    assert ".html" in p.supported_extensions
+    assert ".htm" in p.supported_extensions
