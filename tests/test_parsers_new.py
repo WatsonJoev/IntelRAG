@@ -43,3 +43,29 @@ def test_html_parser_supported_extensions():
     p = HTMLParser()
     assert ".html" in p.supported_extensions
     assert ".htm" in p.supported_extensions
+
+
+def test_json_parser_extracts_text():
+    from ingestion.parsers.json_xml_parser import JSONXMLParser
+    import json
+    data = json.dumps({"title": "Test Doc", "body": "Some content here"}).encode()
+    parser = JSONXMLParser()
+    result = parser.parse(data, "test.json")
+    assert "Test Doc" in result.text
+    assert "Some content here" in result.text
+
+
+def test_xml_parser_extracts_text():
+    from ingestion.parsers.json_xml_parser import JSONXMLParser
+    xml = b"<root><title>XML Title</title><body>XML Body content</body></root>"
+    parser = JSONXMLParser()
+    result = parser.parse(xml, "test.xml")
+    assert "XML Title" in result.text
+    assert "XML Body content" in result.text
+
+
+def test_json_xml_parser_supported_extensions():
+    from ingestion.parsers.json_xml_parser import JSONXMLParser
+    p = JSONXMLParser()
+    assert ".json" in p.supported_extensions
+    assert ".xml" in p.supported_extensions

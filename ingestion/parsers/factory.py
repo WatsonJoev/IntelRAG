@@ -27,8 +27,9 @@ def _get_parsers() -> dict[str, type[BaseParser]]:
         from ingestion.parsers.csv_parser import CSVParser
         from ingestion.parsers.pptx_parser import PPTXParser
         from ingestion.parsers.html_parser import HTMLParser
+        from ingestion.parsers.json_xml_parser import JSONXMLParser
 
-        for cls in (PDFParser, DOCXParser, TXTParser, CSVParser, PPTXParser, HTMLParser):
+        for cls in (PDFParser, DOCXParser, TXTParser, CSVParser, PPTXParser, HTMLParser, JSONXMLParser):
             p = cls()
             for ext in p.supported_extensions:
                 _parsers[ext.lower()] = cls
