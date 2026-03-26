@@ -88,6 +88,14 @@ class Settings(BaseSettings):
     )
     tier_3_model: str = Field(default="openai/gpt-4o-mini", alias="TIER_3_MODEL")
 
+    # LLM service
+    llm_timeout_seconds: int = Field(default=60, alias="LLM_TIMEOUT_SECONDS")
+    llm_max_retries: int = Field(default=3, alias="LLM_MAX_RETRIES")
+    llm_retry_base_delay: float = Field(default=1.0, alias="LLM_RETRY_BASE_DELAY")
+
+    # Conversation
+    conversation_history_turns: int = Field(default=6, alias="CONVERSATION_HISTORY_TURNS")
+
     # Cache
     cache_exact_ttl: int = Field(default=86400, alias="CACHE_EXACT_TTL")
     cache_semantic_ttl: int = Field(default=172800, alias="CACHE_SEMANTIC_TTL")
