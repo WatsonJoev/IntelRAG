@@ -1,16 +1,18 @@
 """
-Chat page: full RAG loop with LLM, streaming, badges.
-Sprint 3 adds complexity routing. Sprint 5 adds multi-turn persistence.
+Chat page: full RAG loop with complexity routing and fallback chain.
+Sprint 5 adds multi-turn persistence.
 """
 from __future__ import annotations
 
 import time
 import uuid
+from typing import Optional
 
 import streamlit as st
 
 from config.settings import get_settings
 from core.cache.cache_manager import get_cache_manager
+from core.complexity_classifier import Tier, classify
 from core.confidence import score_confidence
 from core.llm_service import LLMUnavailableError, call_llm
 from core.prompt_builder import build_messages
@@ -25,14 +27,17 @@ def _init_session() -> None:
         st.session_state["messages"] = []
 
 
-def _render_message(role: str, content: str, meta: dict = None) -> None:
+def _render_message(role: str, content: str, meta: Optional[dict] = None) -> None:
     with st.chat_message(role):
         st.markdown(content)
         if meta and role == "assistant":
-            cols = st.columns(3)
+            cols = st.columns(4)
             cols[0].markdown(f"**Cache:** {meta.get('cache', 'Fresh')}")
-            cols[1].markdown(f"**Model:** `{meta.get('model_short', '-')}`")
-            cols[2].markdown(f"**Confidence:** {meta.get('confidence', '-')}")
+            cols[1].markdown(f"**Tier:** `{meta.get('tier', '-')}`")
+            cols[2].markdown(f"**Model:** `{meta.get('model_short', '-')}`")
+            cols[3].markdown(f"**Confidence:** {meta.get('confidence', '-')}")
+            if meta.get("fallback"):
+                st.caption(f"Fallback used: {meta['fallback']}")
             if meta.get("sources"):
                 with st.expander("Sources", expanded=False):
                     for i, src in enumerate(meta["sources"], 1):
@@ -58,7 +63,9 @@ def main() -> None:
         _render_message(msg["role"], msg["content"], msg.get("meta"))
 
     if prompt := st.chat_input("Ask a question about your documents..."):
-        st.session_state["messages"].append({"role": "user", "content": prompt})
+        turn_count = len(st.session_state["messages"]) // 2
+        tier, _ = classify(prompt, turn_count=turn_count)
+        st.session_state["messages"].append({"role": "user", "content": prompt, "tier": tier.value})
         _render_message("user", prompt)
 
         with st.spinner("Thinking..."):
@@ -72,15 +79,40 @@ def main() -> None:
                     answer = "I don't have enough information in the indexed documents to answer this."
                     sources_meta = []
                     confidence = "LOW"
-                    model_used = "-"
+                    model_id = "-"
                     model_short = "-"
                     tokens_in = tokens_out = 0
                     cost = 0.0
+                    fallback_tier = None
                 else:
                     messages = build_messages(prompt, chunks, history=[])
-                    model_id = s.tier_1_model
 
-                    answer, tokens_in, tokens_out, cost = call_llm(messages, model_id)
+                    FALLBACK_CHAIN = [
+                        (Tier.SIMPLE, s.tier_1_model),
+                        (Tier.MODERATE, s.tier_2_model),
+                        (Tier.COMPLEX, s.tier_3_model),
+                    ]
+                    start_idx = next(i for i, (t, _) in enumerate(FALLBACK_CHAIN) if t == tier)
+
+                    answer = None
+                    tokens_in = tokens_out = 0
+                    cost = 0.0
+                    fallback_tier = None
+                    model_id = "-"
+
+                    for fb_tier, fb_model in FALLBACK_CHAIN[start_idx:]:
+                        try:
+                            answer, tokens_in, tokens_out, cost = call_llm(messages, fb_model)
+                            model_id = fb_model
+                            if fb_tier != tier:
+                                fallback_tier = fb_tier.value
+                            break
+                        except LLMUnavailableError:
+                            continue
+
+                    if answer is None:
+                        raise LLMUnavailableError("All tiers exhausted")
+
                     confidence = score_confidence(chunks)
                     model_short = model_id.split("/")[-1]
                     sources_meta = [
@@ -91,7 +123,9 @@ def main() -> None:
                 latency_ms = int((time.time() - t0) * 1000)
                 meta = {
                     "cache": "Fresh",
+                    "tier": tier.value,
                     "model_short": model_short,
+                    "fallback": fallback_tier,
                     "confidence": f"{'GREEN' if confidence == 'HIGH' else 'YELLOW' if confidence == 'MEDIUM' else 'RED'} {confidence}",
                     "sources": sources_meta,
                 }
