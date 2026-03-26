@@ -1,5 +1,5 @@
 # IntelRAG ORM models
-from models.db import Base, Chunk, Collection, Config, Conversation, Document
+from models.db import Base, Chunk, Collection, Config, Conversation, Document, IngestionLog, QueryLog, TokenUsage
 from models.session import get_db, init_db
 
 __all__ = [
@@ -9,6 +9,9 @@ __all__ = [
     "Collection",
     "Conversation",
     "Config",
+    "QueryLog",
+    "TokenUsage",
+    "IngestionLog",
     "get_db",
     "init_db",
 ]
