@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path:
 
 import streamlit as st
 from config.settings import get_settings
+from core.cache.cache_manager import get_cache_manager
 from ingestion.pipeline import ingest_document
 from models import get_db
 from models.db import Document
@@ -69,4 +70,5 @@ def render() -> None:
                         # TODO: delete from vector store
                         doc.status = "deleted"
                         db2.commit()
+                        get_cache_manager().invalidate_on_doc_change()
                 st.rerun()
