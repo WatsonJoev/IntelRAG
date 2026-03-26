@@ -4,10 +4,12 @@ Document ingestion pipeline: file store → parser → chunker → embedder → 
 from __future__ import annotations
 
 import hashlib
+import time
 import uuid
 from pathlib import Path
 
 from config.logging_config import get_logger
+from core.audit import log_ingestion
 from config.settings import get_settings
 from core.embedding_service import embed_texts
 from core.storage.file_store import FileStore
@@ -40,6 +42,7 @@ def ingest_document(
     file_store = file_store or FileStore(base_path=s.file_store_path)
     vector_store = vector_store or VectorStore()
     doc_id = str(uuid.uuid4())[:12]
+    t_start = time.time()
 
     try:
         content_hash = hashlib.sha256(content).hexdigest()
@@ -48,6 +51,7 @@ def ingest_document(
             existing = db.query(Document).filter(Document.content_hash == content_hash).first()
             if existing:
                 logger.info("duplicate_skipped", doc_id=existing.id, filename=filename)
+                log_ingestion(existing.id, "duplicate")
                 return existing.id, "duplicate"
 
         file_store.save(doc_id, filename, content)
@@ -119,6 +123,7 @@ def ingest_document(
                 db.add(ch)
             db.commit()
 
+        log_ingestion(doc_id, "success", chunks_created=len(chunks), duration_ms=int((time.time() - t_start) * 1000))
         logger.info(
             "document_indexed",
             doc_id=doc_id,
@@ -128,6 +133,7 @@ def ingest_document(
         return doc_id, "indexed"
     except Exception as e:
         logger.exception("ingestion_failed", doc_id=doc_id, filename=filename, error=str(e))
+        log_ingestion(doc_id, "failed", error_message=str(e))
         with get_db() as db:
             doc = db.query(Document).filter(Document.id == doc_id).first()
             if doc:
