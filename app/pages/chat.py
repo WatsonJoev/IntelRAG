@@ -75,23 +75,77 @@ def _render_message(role: str, content: str, meta: Optional[dict] = None) -> Non
     with st.chat_message(role):
         st.markdown(content)
         if meta and role == "assistant":
-            cols = st.columns(4)
-            cols[0].markdown(f"**Cache:** {meta.get('cache', 'Fresh')}")
-            cols[1].markdown(f"**Tier:** `{meta.get('tier', '-')}`")
-            cols[2].markdown(f"**Model:** `{meta.get('model_short', '-')}`")
-            cols[3].markdown(f"**Confidence:** {meta.get('confidence', '-')}")
+            cache_val = meta.get("cache", "Fresh")
+            tier_val = meta.get("tier", "")
+            model_val = meta.get("model_short", "")
+            conf_val = meta.get("confidence", "")
+
+            cache_class = "badge-cache" if "Hit" in str(cache_val) else "badge-fresh"
+            conf_class = "badge-conf-high" if conf_val == "HIGH" else "badge-conf-med" if conf_val == "MEDIUM" else "badge-conf-low"
+            conf_icon = "HIGH" if conf_val == "HIGH" else "MED" if conf_val == "MEDIUM" else "LOW"
+
+            badge_html = f"""<div class="chat-badge-row">
+                <span class="chat-badge {cache_class}">{cache_val}</span>"""
+            if tier_val:
+                badge_html += f'<span class="chat-badge badge-tier">{tier_val}</span>'
+            if model_val:
+                badge_html += f'<span class="chat-badge badge-model">{model_val}</span>'
+            if conf_val:
+                badge_html += f'<span class="chat-badge {conf_class}">CONF:{conf_icon}</span>'
             if meta.get("fallback"):
-                st.caption(f"Fallback used: {meta['fallback']}")
+                badge_html += f'<span class="chat-badge badge-fresh">fallback:{meta["fallback"]}</span>'
+            badge_html += "</div>"
+            st.markdown(badge_html, unsafe_allow_html=True)
+
             if meta.get("sources"):
-                with st.expander("Sources", expanded=False):
+                with st.expander(f"Sources ({len(meta['sources'])})", expanded=False):
                     for i, src in enumerate(meta["sources"], 1):
-                        pg = f", page {src['page']}" if src.get("page") else ""
-                        st.markdown(f"**[Source {i}]** `{src['doc_name']}`{pg} (score: {src['score']:.2f})")
-                        st.caption(src["text"][:300] + ("..." if len(src["text"]) > 300 else ""))
+                        pg = f", p.{src['page']}" if src.get("page") else ""
+                        score_color = "#10b981" if src['score'] > 0.85 else "#f59e0b" if src['score'] > 0.70 else "#ef4444"
+                        st.markdown(f"""<div class="source-item">
+                            <div class="source-header">[Source {i}] {src['doc_name']}{pg}
+                                <span style="float:right;color:{score_color};font-size:0.75rem">{src['score']:.2f}</span>
+                            </div>
+                            <div class="source-text">{src['text'][:250]}{'...' if len(src['text']) > 250 else ''}</div>
+                        </div>""", unsafe_allow_html=True)
 
 
 def main() -> None:
     _init_session()
+    # Dark mode chat CSS
+    st.markdown("""
+<style>
+.stChatMessage { border-radius: 12px; }
+[data-testid="stChatMessage"] { padding: 8px 0; }
+.stChatInputContainer { border-top: 1px solid #1e293b; padding-top: 8px; }
+.chat-badge-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.chat-badge {
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-family: monospace;
+    letter-spacing: 0.03em;
+}
+.badge-fresh { background: #1e293b; color: #94a3b8; border: 1px solid #334155; }
+.badge-cache { background: #1a2e1a; color: #10b981; border: 1px solid #166534; }
+.badge-tier { background: #1e1a2e; color: #8b5cf6; border: 1px solid #4c1d95; }
+.badge-model { background: #1e293b; color: #3b82f6; border: 1px solid #1e40af; }
+.badge-conf-high { background: #1a2e1a; color: #10b981; border: 1px solid #166534; }
+.badge-conf-med { background: #2e2a1a; color: #f59e0b; border: 1px solid #92400e; }
+.badge-conf-low { background: #2e1a1a; color: #ef4444; border: 1px solid #991b1b; }
+.source-item {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin: 4px 0;
+    font-size: 0.8rem;
+}
+.source-header { color: #3b82f6; font-weight: 600; margin-bottom: 4px; }
+.source-text { color: #94a3b8; line-height: 1.5; }
+</style>
+""", unsafe_allow_html=True)
     s = get_settings()
     st.title("IntelRAG Chat")
 
@@ -265,3 +319,6 @@ def main() -> None:
 
 
 main()
+
+# Alias for backward compatibility with app/main.py
+render = main

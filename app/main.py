@@ -23,7 +23,7 @@ init_db()
 
 import streamlit as st
 
-from app.pages import chat, documents
+from app.pages import chat, documents, admin
 
 st.set_page_config(
     page_title="IntelRAG",
@@ -46,12 +46,14 @@ st.sidebar.title("IntelRAG")
 st.sidebar.markdown("Enterprise RAG — upload docs, ask questions.")
 page = st.sidebar.radio(
     "Navigate",
-    ["Documents", "Chat"],
+    ["Documents", "Chat", "Admin"],
     index=0,
     label_visibility="collapsed",
 )
 
 if page == "Documents":
     documents.render()
+elif page == "Admin":
+    admin.render()
 else:
     chat.render()
