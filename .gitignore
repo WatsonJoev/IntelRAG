@@ -1,0 +1,28 @@
+# Environment and secrets
+.env
+.env.local
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Data and DB (local dev)
+data/
+*.db
+!data/.gitkeep
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Docs (keep in repo)
+# PRD.md
+# Tasks.md

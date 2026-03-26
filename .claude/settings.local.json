@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import httpx; print\\('httpx available'\\)\" 2>&1 || echo \"httpx NOT available\"\npython -m pip show httpx 2>&1 | head -5)"
+    ]
+  }
+}

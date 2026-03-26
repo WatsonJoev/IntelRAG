@@ -1,0 +1,1 @@
+# IntelRAG Streamlit app package

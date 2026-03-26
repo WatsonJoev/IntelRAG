@@ -1,0 +1,86 @@
+# IntelRAG — Development & Production
+# Usage: docker compose up -d
+
+services:
+  app:
+    build: .
+    ports:
+      - "8501:8501"
+    env_file: .env
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=sqlite:///./data/intelrag.db
+      - REDIS_URL=redis://redis:6379/0
+      - VECTOR_STORE_BACKEND=chromadb
+      - FILE_STORE_BACKEND=local
+    volumes:
+      - app_data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles:
+      - full
+
+  app-dev:
+    build: .
+    ports:
+      - "8501:8501"
+    env_file: .env
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=sqlite:///./data/intelrag.db
+      - REDIS_URL=
+      - VECTOR_STORE_BACKEND=chromadb
+      - FILE_STORE_BACKEND=local
+    volumes:
+      - .:/app
+      - app_data:/app/data
+    command: streamlit run app/main.py --server.port=8501 --server.address=0.0.0.0
+    profiles:
+      - dev
+
+  redis:
+    image: redis/redis-stack:7.2.0-v6
+    ports:
+      - "6379:6379"
+      - "8001:8001"
+    volumes:
+      - redis_data:/data
+    command: redis-server --maxmemory 4gb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    profiles:
+      - full
+
+  qdrant:
+    image: qdrant/qdrant:v1.9.0
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    profiles:
+      - full
+      - prod
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: intelrag
+      POSTGRES_USER: ${DB_USER:-intelrag}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-intelrag}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    profiles:
+      - full
+      - prod
+
+volumes:
+  app_data:
+  redis_data:
+  qdrant_data:
+  pg_data:

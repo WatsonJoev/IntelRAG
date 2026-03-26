@@ -1,0 +1,1 @@
+# IntelRAG config package
