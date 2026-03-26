@@ -4,7 +4,7 @@ Interface allows swapping to Qdrant via config.
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 import chromadb
 from chromadb.config import Settings as ChromaSettings
@@ -16,7 +16,30 @@ from config.settings import get_settings
 logger = get_logger(__name__)
 
 
-class VectorStore:
+@runtime_checkable
+class VectorStoreProtocol(Protocol):
+    def add_with_embeddings(
+        self,
+        ids: list[str],
+        embeddings: list[list[float]],
+        metadatas: list[dict[str, Any]],
+        documents: list[str] | None = None,
+    ) -> None: ...
+
+    def search(
+        self,
+        query_embeddings: list[list[float]] | None = None,
+        query_texts: list[str] | None = None,
+        n_results: int = 20,
+        where: dict[str, Any] | None = None,
+    ) -> dict[str, Any]: ...
+
+    def delete(self, ids: list[str] | None = None, where: dict[str, Any] | None = None) -> None: ...
+
+    def count(self) -> int: ...
+
+
+class VectorStore(VectorStoreProtocol):
     """
     ChromaDB-backed vector store for chunk embeddings.
     Uses HNSW index and cosine similarity.
