@@ -16,6 +16,8 @@ logger = get_logger(__name__)
 
 # Cost per 1M tokens (prompt + completion combined)
 MODEL_PRICES = {
+    "meta-llama/llama-3.2-3b-instruct:free": 0.0,
+    "meta-llama/llama-3.3-70b-instruct:free": 0.0,
     "meta-llama/llama-3.1-8b-instruct:free": 0.0,
     "mistralai/mistral-7b-instruct:free": 0.0,
     "google/gemma-2-9b-it:free": 0.0,
@@ -50,7 +52,8 @@ def get_openrouter_client() -> openai.OpenAI:
 
 def _should_retry(exc: Exception) -> bool:
     if isinstance(exc, openai.APIStatusError):
-        return exc.status_code >= 500
+        # 429 = rate limited (retry with backoff), 5xx = server error (retry)
+        return exc.status_code == 429 or exc.status_code >= 500
     if isinstance(exc, (openai.APIConnectionError, openai.APITimeoutError)):
         return True
     return False

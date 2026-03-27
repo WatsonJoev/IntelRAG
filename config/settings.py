@@ -81,10 +81,10 @@ class Settings(BaseSettings):
 
     # Model tiers (OpenRouter model IDs)
     tier_1_model: str = Field(
-        default="meta-llama/llama-3.1-8b-instruct:free", alias="TIER_1_MODEL"
+        default="meta-llama/llama-3.2-3b-instruct:free", alias="TIER_1_MODEL"
     )
     tier_2_model: str = Field(
-        default="google/gemini-2.0-flash-exp:free", alias="TIER_2_MODEL"
+        default="meta-llama/llama-3.3-70b-instruct:free", alias="TIER_2_MODEL"
     )
     tier_3_model: str = Field(default="openai/gpt-4o-mini", alias="TIER_3_MODEL")
 
