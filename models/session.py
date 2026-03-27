@@ -19,7 +19,7 @@ _engine = create_engine(
     connect_args={"check_same_thread": False} if "sqlite" in _settings.database_url else {},
     echo=_settings.environment == "development",
 )
-_SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
+_SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine, expire_on_commit=False)
 
 
 def init_db() -> None:
