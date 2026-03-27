@@ -25,11 +25,16 @@ from config.logging_config import configure_logging
 from config.settings import get_settings
 from models.session import ensure_data_dir, init_db
 
-# One-time init
-_settings = get_settings()
-configure_logging(json_logs=_settings.log_json, log_level=_settings.log_level)
-ensure_data_dir()
-init_db()
+# Module-level flag: Streamlit reruns main.py on every interaction, but
+# Python module cache keeps this flag alive so init runs exactly once per process.
+_APP_INITIALIZED: list = []  # use a list so it's mutable from module scope
+
+if not _APP_INITIALIZED:
+    _settings = get_settings()
+    configure_logging(json_logs=_settings.log_json, log_level=_settings.log_level)
+    ensure_data_dir()
+    init_db()
+    _APP_INITIALIZED.append(True)
 
 from app.pages import chat, documents, admin
 

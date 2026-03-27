@@ -123,24 +123,39 @@ def render() -> None:
         help=f"Supported: {', '.join(t.upper() for t in SUPPORTED_TYPES[:8])} + more",
     )
 
+    # Track processed files to prevent rerun loop:
+    # Streamlit keeps uploaded files in widget state after rerun, so without
+    # this guard the upload block fires on every rerun causing an infinite loop.
+    if "processed_upload_keys" not in st.session_state:
+        st.session_state["processed_upload_keys"] = set()
+
     if uploaded:
-        file_store = FileStore(base_path=settings.file_store_path)
-        progress_bar = st.progress(0)
-        for idx, f in enumerate(uploaded):
-            progress_bar.progress((idx + 1) / len(uploaded), text=f"Processing {f.name}...")
-            if f.size > max_bytes:
-                st.error(f"**{f.name}** exceeds {max_mb} MB limit ({_format_size(f.size)})")
-                continue
-            content = f.read()
-            doc_id, status = ingest_document(content, f.name, file_store=file_store)
-            if status == "indexed":
-                st.success(f"Indexed: **{f.name}**")
-            elif status == "duplicate":
-                st.info(f"Already exists: **{f.name}** (skipped)")
-            else:
-                st.error(f"Failed to process: **{f.name}**")
-        progress_bar.empty()
-        st.rerun()
+        # Fingerprint each file by name+size to detect already-processed files
+        pending = [f for f in uploaded
+                   if f"{f.name}:{f.size}" not in st.session_state["processed_upload_keys"]]
+
+        if pending:
+            file_store = FileStore(base_path=settings.file_store_path)
+            progress_bar = st.progress(0)
+            newly_indexed = False
+            for idx, f in enumerate(pending):
+                progress_bar.progress((idx + 1) / len(pending), text=f"Processing {f.name}...")
+                st.session_state["processed_upload_keys"].add(f"{f.name}:{f.size}")
+                if f.size > max_bytes:
+                    st.error(f"**{f.name}** exceeds {max_mb} MB limit ({_format_size(f.size)})")
+                    continue
+                content = f.read()
+                doc_id, status = ingest_document(content, f.name, file_store=file_store)
+                if status == "indexed":
+                    st.success(f"Indexed: **{f.name}**")
+                    newly_indexed = True
+                elif status == "duplicate":
+                    st.info(f"Already exists: **{f.name}** (skipped)")
+                else:
+                    st.error(f"Failed to process: **{f.name}**")
+            progress_bar.empty()
+            if newly_indexed:
+                st.rerun()  # Refresh document list only when something was actually added
 
     # Document list
     st.markdown("---")
