@@ -36,7 +36,7 @@ if not _APP_INITIALIZED:
     init_db()
     _APP_INITIALIZED.append(True)
 
-from app.pages import chat, documents, admin
+from app.views import chat, documents, admin
 
 # Custom CSS for cleaner UI
 st.markdown("""
