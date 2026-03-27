@@ -31,6 +31,7 @@ def configure_logging(json_logs: bool = True, log_level: str = "INFO") -> None:
         add_correlation_id,
         structlog.processors.add_log_level,
         structlog.processors.StackInfoRenderer(),
+        structlog.processors.ExceptionRenderer(),  # must run before any finalizer
         structlog.processors.UnicodeDecoder(),
         structlog.processors.TimeStamper(fmt="iso"),
     ]
@@ -40,8 +41,7 @@ def configure_logging(json_logs: bool = True, log_level: str = "INFO") -> None:
         shared_processors.append(structlog.dev.ConsoleRenderer(colors=True))
 
     structlog.configure(
-        processors=shared_processors
-        + [structlog.processors.ExceptionRenderer()],
+        processors=shared_processors,
         wrapper_class=structlog.make_filtering_bound_logger(
             getattr(logging, log_level.upper(), logging.INFO)
         ),
