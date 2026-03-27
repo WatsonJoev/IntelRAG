@@ -76,7 +76,7 @@ class Settings(BaseSettings):
     # Retrieval
     top_k_retrieval: int = Field(default=20, alias="TOP_K_RETRIEVAL")
     top_k_rerank: int = Field(default=5, alias="TOP_K_RERANK")
-    similarity_threshold: float = Field(default=0.3, alias="SIMILARITY_THRESHOLD")
+    similarity_threshold: float = Field(default=0.25, alias="SIMILARITY_THRESHOLD")
     hybrid_search: bool = Field(default=True, alias="HYBRID_SEARCH")
 
     # Model tiers (OpenRouter model IDs)
