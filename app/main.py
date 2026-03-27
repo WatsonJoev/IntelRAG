@@ -11,6 +11,16 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import streamlit as st
+
+# st.set_page_config MUST be the very first Streamlit call
+st.set_page_config(
+    page_title="IntelRAG",
+    page_icon="📚",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
 from config.logging_config import configure_logging
 from config.settings import get_settings
 from models.session import ensure_data_dir, init_db
@@ -21,16 +31,7 @@ configure_logging(json_logs=_settings.log_json, log_level=_settings.log_level)
 ensure_data_dir()
 init_db()
 
-import streamlit as st
-
 from app.pages import chat, documents, admin
-
-st.set_page_config(
-    page_title="IntelRAG",
-    page_icon="📚",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
 
 # Custom CSS for cleaner UI
 st.markdown("""

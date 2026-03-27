@@ -25,6 +25,12 @@ from models.db import Conversation, Document
 from models.session import get_db
 
 
+@st.cache_resource
+def _get_vector_store() -> VectorStore:
+    """Cache the VectorStore across reruns to avoid reloading the embedding model."""
+    return VectorStore()
+
+
 def _compute_doc_set_hash() -> str:
     """SHA-256 fingerprint of all currently indexed documents."""
     with get_db() as db:
@@ -172,7 +178,7 @@ def main() -> None:
             try:
                 t0 = time.time()
                 cache_mgr = get_cache_manager()
-                vs = VectorStore()
+                vs = _get_vector_store()
                 doc_set_hash = _compute_doc_set_hash()
 
                 # --- Cache lookup (Tier 1 + Tier 2) ---
@@ -318,7 +324,4 @@ def main() -> None:
                 st.error(err)
 
 
-main()
-
-# Alias for backward compatibility with app/main.py
 render = main
