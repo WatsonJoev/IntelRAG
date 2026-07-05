@@ -109,6 +109,14 @@ class Settings(BaseSettings):
         default=100, alias="QUERY_RATE_LIMIT_PER_USER"
     )
 
+    # Auth (Basic Auth — set both to enable)
+    basic_auth_username: str = Field(default="", alias="BASIC_AUTH_USERNAME")
+    basic_auth_password: str = Field(default="", alias="BASIC_AUTH_PASSWORD")
+    secret_key: str = Field(default="change-me-in-production", alias="SECRET_KEY")
+
+    # Cost circuit-breaker (0 = disabled)
+    daily_cost_limit_usd: float = Field(default=0.0, alias="DAILY_COST_LIMIT_USD")
+
     # Logging
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     log_json: bool = Field(default=True, alias="LOG_JSON")

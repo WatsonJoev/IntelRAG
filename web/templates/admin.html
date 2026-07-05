@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Admin · IntelRAG v2{% endblock %}
+
+{% macro kpi(label, value, sub='') %}
+<div class="bg-panel border border-line rounded-lg p-4">
+  <div class="text-xs text-muted uppercase tracking-wide">{{ label }}</div>
+  <div class="text-2xl font-semibold mt-1">{{ value }}</div>
+  {% if sub %}<div class="text-xs text-muted mt-1">{{ sub }}</div>{% endif %}
+</div>
+{% endmacro %}
+
+{% block content %}
+<h1 class="text-xl font-semibold mb-4">Admin dashboard</h1>
+
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+  {{ kpi('Indexed docs', doc_count) }}
+  {{ kpi('Total queries', query_count) }}
+  {{ kpi('Cache hit rate', hit_rate ~ '%', (cache_stats.tier1_hits + cache_stats.tier2_hits) ~ ' hits') }}
+  {{ kpi('Cost today', '$' ~ '%.4f'|format(total_cost)) }}
+</div>
+
+<div class="grid md:grid-cols-2 gap-6">
+  <div class="bg-panel border border-line rounded-lg p-4">
+    <h2 class="text-sm font-semibold mb-3 text-muted uppercase tracking-wide">Component health</h2>
+    <ul class="space-y-2 text-sm">
+      {% for name, ok in health.items() %}
+        <li class="flex items-center justify-between">
+          <span>{{ name }}</span>
+          <span class="badge {{ 'b-high' if ok else 'b-low' }}">{{ 'UP' if ok else 'DOWN' }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+    <h2 class="text-sm font-semibold mt-5 mb-3 text-muted uppercase tracking-wide">Cache tiers</h2>
+    <ul class="space-y-1 text-sm text-muted">
+      <li>Tier 1 (exact): <span class="text-slate-200">{{ cache_stats.tier1_hits }}</span></li>
+      <li>Tier 2 (semantic): <span class="text-slate-200">{{ cache_stats.tier2_hits }}</span></li>
+      <li>Misses: <span class="text-slate-200">{{ cache_stats.misses }}</span></li>
+    </ul>
+  </div>
+
+  <div class="bg-panel border border-line rounded-lg p-4">
+    <h2 class="text-sm font-semibold mb-3 text-muted uppercase tracking-wide">Recent queries</h2>
+    <div class="space-y-2 max-h-96 overflow-y-auto">
+      {% for q in recent_queries %}
+        <div class="border-b border-line/60 pb-2 text-xs">
+          <div class="text-slate-200">{{ q.query }}</div>
+          <div class="flex flex-wrap gap-2 mt-1 text-muted">
+            <span class="badge b-model">{{ q.model }}</span>
+            <span class="badge b-tier">{{ q.tier }}</span>
+            <span class="badge {{ 'b-cache' if q.cache != 'Fresh' else 'b-fresh' }}">{{ q.cache }}</span>
+            <span>{{ q.latency }}ms</span>
+            <span>${{ '%.4f'|format(q.cost) }}</span>
+            <span>{{ q.time }}</span>
+          </div>
+        </div>
+      {% else %}
+        <p class="text-muted text-sm">No queries logged yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

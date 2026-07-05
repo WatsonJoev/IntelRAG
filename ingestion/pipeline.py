@@ -54,8 +54,9 @@ def ingest_document(
                 log_ingestion(existing.id, "duplicate")
                 return existing.id, "duplicate"
 
+        sanitized_name = FileStore._sanitize_filename(Path(filename).name)
         file_store.save(doc_id, filename, content)
-        file_store_path = f"{doc_id}/{Path(filename).name}"
+        file_store_path = f"{doc_id}/{sanitized_name}"
 
         parser = get_parser_for_content(content, filename)
         if not parser:

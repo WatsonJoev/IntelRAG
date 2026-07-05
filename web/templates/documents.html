@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Documents · IntelRAG v2{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-semibold mb-4">Documents</h1>
+
+<form
+  class="bg-panel border border-line rounded-lg p-4 mb-6 flex items-center gap-3"
+  hx-post="/v2/api/ingest"
+  hx-target="#doc-list"
+  hx-encoding="multipart/form-data"
+  hx-indicator="#uploading"
+  hx-on::after-request="this.reset()"
+>
+  <input
+    type="file" name="file" required
+    class="flex-1 text-sm text-muted file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0
+           file:bg-brand file:text-white file:text-sm hover:file:bg-blue-500"
+  />
+  <button class="bg-brand hover:bg-blue-500 text-white px-5 py-2 rounded-md text-sm font-medium">Upload</button>
+  <span id="uploading" class="htmx-indicator text-muted text-sm animate-pulse">Ingesting…</span>
+</form>
+
+<div id="doc-list" class="bg-panel border border-line rounded-lg p-4">
+  {% include "_doc_list.html" %}
+</div>
+{% endblock %}

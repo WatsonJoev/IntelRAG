@@ -1,0 +1,43 @@
+{% if last_status %}
+  <div class="mb-3 text-xs px-3 py-2 rounded-md border
+    {{ 'border-green-800 bg-green-900/20 text-green-400' if last_status in ('indexed','duplicate') else 'border-red-800 bg-red-900/20 text-red-400' }}">
+    Last upload: {{ last_status }}
+  </div>
+{% endif %}
+<table class="w-full text-sm">
+  <thead class="text-muted text-xs uppercase tracking-wide">
+    <tr class="border-b border-line">
+      <th class="text-left py-2 font-medium">File</th>
+      <th class="text-left py-2 font-medium">Type</th>
+      <th class="text-right py-2 font-medium">Chunks</th>
+      <th class="text-right py-2 font-medium">Pages</th>
+      <th class="text-left py-2 font-medium pl-4">Status</th>
+      <th class="text-left py-2 font-medium">Added</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for d in documents %}
+      <tr class="border-b border-line/60 hover:bg-panel/50">
+        <td class="py-2 pr-2 font-medium">{{ d.filename }}</td>
+        <td class="py-2 text-muted">{{ d.file_type }}</td>
+        <td class="py-2 text-right text-muted">{{ d.chunk_count }}</td>
+        <td class="py-2 text-right text-muted">{{ d.page_count }}</td>
+        <td class="py-2 pl-4">
+          <span class="badge {{ 'b-high' if d.status == 'indexed' else 'b-low' if d.status == 'failed' else 'b-fresh' }}">{{ d.status }}</span>
+        </td>
+        <td class="py-2 text-muted text-xs">{{ d.created_at }}</td>
+        <td class="py-2 text-right">
+          <button
+            class="text-xs text-muted hover:text-red-400"
+            hx-post="/v2/api/documents/{{ d.id }}/delete"
+            hx-target="#doc-list"
+            hx-confirm="Delete {{ d.filename }} and its vectors?"
+          >✕</button>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="py-10 text-center text-muted">No documents yet. Upload one above.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>

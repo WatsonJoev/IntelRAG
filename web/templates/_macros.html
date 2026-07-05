@@ -1,0 +1,51 @@
+{# Reusable renderers shared between full-page loads and htmx fragments. #}
+
+{% macro conf_class(c) %}{{ 'b-high' if c == 'HIGH' else 'b-med' if c == 'MEDIUM' else 'b-low' }}{% endmacro %}
+
+{% macro user_bubble(text) %}
+<div class="flex justify-end">
+  <div class="max-w-[80%] bg-brand/15 border border-brand/30 rounded-2xl rounded-br-sm px-4 py-2 text-sm">
+    {{ text }}
+  </div>
+</div>
+{% endmacro %}
+
+{% macro assistant_bubble(content, meta) %}
+<div class="flex justify-start">
+  <div class="max-w-[85%] bg-panel border border-line rounded-2xl rounded-bl-sm px-4 py-3 text-sm w-full">
+    <div class="md leading-relaxed">{{ content | md(meta.sources if meta else none) }}</div>
+    {% if meta %}
+      <details class="mt-3">
+        <summary class="cursor-pointer list-none flex items-center gap-2 text-xs text-muted hover:text-slate-200 select-none">
+          <span class="badge b-fresh">{{ meta.latency_ms or 0 }}ms</span>
+          <span class="opacity-70">details ▾</span>
+        </summary>
+        <div class="flex flex-wrap gap-2 mt-2">
+          <span class="badge {{ 'b-cache' if 'Hit' in (meta.cache or '') else 'b-fresh' }}">{{ meta.cache }}</span>
+          {% if meta.tier %}<span class="badge b-tier">{{ meta.tier }}</span>{% endif %}
+          {% if meta.model_short and meta.model_short != '-' %}<span class="badge b-model">{{ meta.model_short }}</span>{% endif %}
+          {% if meta.confidence %}<span class="badge {{ conf_class(meta.confidence) }}">CONF:{{ meta.confidence }}</span>{% endif %}
+          {% if meta.fallback %}<span class="badge b-fresh">fallback:{{ meta.fallback }}</span>{% endif %}
+        </div>
+      </details>
+      {% if meta.sources %}
+        <details class="mt-2 group">
+          <summary class="cursor-pointer text-xs text-muted hover:text-slate-200 select-none">Sources ({{ meta.sources|length }})</summary>
+          <div class="mt-2 space-y-2">
+            {% for src in meta.sources %}
+              {% set sc = '#10b981' if src.score > 0.85 else '#f59e0b' if src.score > 0.70 else '#ef4444' %}
+              <div class="bg-ink border border-line rounded-md px-3 py-2 text-xs">
+                <div class="text-brand font-semibold flex justify-between">
+                  <span>{{ src.doc_name }}{% if src.page %}, p.{{ src.page }}{% endif %}</span>
+                  <span style="color: {{ sc }}">{{ '%.2f'|format(src.score) }}</span>
+                </div>
+                <div class="text-muted mt-1 leading-relaxed">{{ src.text[:250] }}{% if src.text|length > 250 %}…{% endif %}</div>
+              </div>
+            {% endfor %}
+          </div>
+        </details>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}

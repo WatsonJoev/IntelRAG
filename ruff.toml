@@ -1,11 +1,13 @@
 # Ruff lint/format config
-target-version = "py311"
+target-version = "py312"
 line-length = 100
+
+[lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4"]
 ignore = ["E501"]
 
-[tool.ruff.isort]
+[lint.isort]
 known-first-party = ["app", "core", "ingestion", "models", "config", "utils"]
 
-[tool.ruff.per-file-ignores]
+[lint.per-file-ignores]
 "tests/*" = ["S101"]  # allow assert

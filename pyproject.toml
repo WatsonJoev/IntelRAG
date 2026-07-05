@@ -31,6 +31,12 @@ dependencies = [
     "beautifulsoup4>=4.12.0",
     "lxml>=5.0.0",
     "alembic>=1.13.0",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+    "jinja2>=3.1.0",
+    "python-multipart>=0.0.9",
+    "slowapi>=0.1.9",
+    "itsdangerous>=2.1.0",
 ]
 
 [project.optional-dependencies]
@@ -52,7 +58,7 @@ where = ["."]
 include = ["app*", "core*", "ingestion*", "models*", "config*", "utils*"]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 line-length = 100
 select = ["E", "F", "I", "N", "W", "UP"]
 ignore = ["E501"]
@@ -61,7 +67,7 @@ ignore = ["E501"]
 known-first-party = ["app", "core", "ingestion", "models", "config", "utils"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
 warn_return_any = true
 warn_unused_configs = true

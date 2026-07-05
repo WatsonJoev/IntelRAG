@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Chat · IntelRAG v2{% endblock %}
+{% block toolbar %}session {{ session_short }}…{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-xl font-semibold">Chat</h1>
+  <form method="post" action="/v2/chat/new">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+    <button class="text-xs px-3 py-1.5 rounded-md border border-line text-muted hover:text-slate-200 hover:border-slate-500">
+      New conversation
+    </button>
+  </form>
+</div>
+
+<div id="messages" class="space-y-4 min-h-[50vh]">
+  {% if not messages %}
+    <p class="text-muted text-sm text-center py-16">Ask a question about your indexed documents to get started.</p>
+  {% endif %}
+  {% for msg in messages %}
+    {% if msg.role == 'user' %}
+      {{ m.user_bubble(msg.content) }}
+    {% else %}
+      {{ m.assistant_bubble(msg.content, msg.meta) }}
+    {% endif %}
+  {% endfor %}
+</div>
+
+<div id="thinking" class="htmx-indicator text-muted text-sm mt-4 flex items-center gap-2">
+  <span class="animate-pulse">●</span> Thinking…
+</div>
+
+<form
+  id="chat-form"
+  class="mt-4 flex gap-2 sticky bottom-4"
+  hx-post="/v2/api/chat"
+  hx-target="#messages"
+  hx-swap="beforeend"
+  hx-indicator="#thinking"
+  hx-on::before-request="showUserMessage(this)"
+>
+  <input
+    id="chat-input"
+    name="message"
+    autocomplete="off"
+    required
+    placeholder="Ask a question about your documents…"
+    class="flex-1 bg-panel border border-line rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-brand"
+  />
+  <button class="bg-brand hover:bg-blue-500 text-white px-5 py-3 rounded-lg text-sm font-medium">
+    Send
+  </button>
+</form>
+
+<script>
+  function scrollToBottom(smooth) {
+    requestAnimationFrame(() => {
+      const top = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+      window.scrollTo({ top: top, behavior: smooth ? 'smooth' : 'auto' });
+    });
+  }
+
+  // Optimistically show the user's message and clear the input the instant they
+  // hit send (htmx has already captured the form value by before-request).
+  function showUserMessage(form) {
+    const input = form.querySelector('#chat-input');
+    const text = (input.value || '').trim();
+    if (!text) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'flex justify-end';
+    const bubble = document.createElement('div');
+    bubble.className = 'max-w-[80%] bg-brand/15 border border-brand/30 rounded-2xl rounded-br-sm px-4 py-2 text-sm';
+    bubble.textContent = text;               // textContent = no HTML injection
+    wrap.appendChild(bubble);
+    document.getElementById('messages').appendChild(wrap);
+    input.value = '';
+    input.focus();
+    scrollToBottom(true);
+  }
+
+  // Auto-scroll when htmx swaps in a new (assistant) message. afterSwap fires on
+  // #messages and bubbles up to body, so listen there.
+  document.body.addEventListener('htmx:afterSwap', function () { scrollToBottom(true); });
+
+  // Jump to the latest message on initial load / navigation.
+  window.addEventListener('DOMContentLoaded', function () { scrollToBottom(false); });
+</script>
+{% endblock %}

@@ -44,3 +44,14 @@ def embed_texts(texts: list[str], batch_size: int | None = None) -> list[list[fl
 def embed_query(query: str) -> list[float]:
     """Embed a single query string."""
     return embed_texts([query])[0]
+
+
+def max_sequence_tokens() -> int:
+    """Max tokens the embedding model encodes before silently truncating."""
+    return int(getattr(_get_model(), "max_seq_length", 256))
+
+
+def count_tokens(text: str) -> int:
+    """Token count for `text` under the embedding model's own tokenizer."""
+    tokenizer = _get_model().tokenizer
+    return len(tokenizer.encode(text, add_special_tokens=False))
