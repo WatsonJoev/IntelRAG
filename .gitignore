@@ -1,28 +1,66 @@
-# Environment and secrets
+# ── Secrets & environment ────────────────────────────────────────────────────
 .env
 .env.local
+.env.*.local
 *.pem
+*.key
+*.p12
+secrets/
 
-# Python
+# ── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
+*.pyo
 .venv/
 venv/
 *.egg-info/
 .eggs/
 dist/
 build/
+*.whl
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.hypothesis/
 
-# Data and DB (local dev)
+# ── Data & databases (local dev) ─────────────────────────────────────────────
 data/
-*.db
 !data/.gitkeep
+*.db
+*.sqlite
+*.sqlite3
 
-# IDE
+# ── Vector store & model cache ───────────────────────────────────────────────
+chroma/
+qdrant_storage/
+.chroma/
+# sentence-transformers download cache
+models/
+*.bin
+*.safetensors
+*.gguf
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── OS artefacts ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE / editors ────────────────────────────────────────────────────────────
 .idea/
 .vscode/
 *.swp
+*.swo
+*~
 
-# Docs (keep in repo)
-# PRD.md
-# Tasks.md
+# ── Docker ───────────────────────────────────────────────────────────────────
+# Keep compose and Dockerfile; ignore local override
+docker-compose.override.yml
+
+# ── Alembic auto-generated (keep migrations, ignore local state) ──────────────
+alembic/versions/__pycache__/

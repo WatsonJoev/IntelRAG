@@ -17,6 +17,8 @@ Run:  uvicorn web.server:app --reload --port 8600
 from __future__ import annotations
 
 import base64
+import hashlib
+import hmac
 import re
 import secrets
 import uuid
@@ -91,6 +93,22 @@ def _unsign(token: str, max_age: int = 86400 * 30) -> str | None:
 
 
 # --------------------------------------------------------------------------- #
+# CSRF — session-stable token (HMAC-SHA256 of session_id)
+# --------------------------------------------------------------------------- #
+def _csrf_for_session(session_id: str) -> str:
+    """
+    Derive a stable CSRF token from the session ID.
+    Stable within a session so htmx partial swaps don't invalidate it.
+    Unpredictable without SECRET_KEY.
+    """
+    return hmac.new(
+        get_settings().secret_key.encode(),
+        (session_id + "|csrf").encode(),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+# --------------------------------------------------------------------------- #
 # Security helpers
 # --------------------------------------------------------------------------- #
 def _require_auth(request: Request) -> None:
@@ -119,24 +137,12 @@ def _require_auth(request: Request) -> None:
                             headers={"WWW-Authenticate": 'Basic realm="IntelRAG"'})
 
 
-def _csrf_token_from_cookie(request: Request) -> str | None:
-    raw = request.cookies.get("csrf")
-    if not raw:
-        return None
-    return _unsign(raw, max_age=86400)
-
-
-def _new_csrf_token() -> tuple[str, str]:
-    """Return (plaintext_token, signed_cookie_value)."""
-    token = secrets.token_urlsafe(32)
-    return token, _sign(token)
-
-
 def _validate_csrf(request: Request) -> None:
-    """Compare the signed cookie to the X-CSRF-Token header."""
-    cookie_token = _csrf_token_from_cookie(request)
+    """Compare the X-CSRF-Token header against the session-derived CSRF token."""
+    session_id = _session_id(request)
+    expected = _csrf_for_session(session_id)
     header_token = request.headers.get("X-CSRF-Token", "")
-    if not cookie_token or not secrets.compare_digest(cookie_token, header_token):
+    if not secrets.compare_digest(expected, header_token):
         raise HTTPException(status_code=403, detail="CSRF token invalid or missing")
 
 
@@ -195,6 +201,7 @@ def _replace_citations(text: str, sources: list | None) -> str:
     if not sources:
         return text
 
+    # Build a deduplicated name list for each cited number
     def repl(match: re.Match) -> str:
         names: list[str] = []
         for num in re.findall(r"\d+", match.group(1)):
@@ -205,7 +212,10 @@ def _replace_citations(text: str, sources: list | None) -> str:
                     names.append(name)
         return "[" + ", ".join(names) + "]" if names else match.group(0)
 
-    return _CITE_RE.sub(repl, text)
+    result = _CITE_RE.sub(repl, text)
+    # Collapse consecutive identical citation groups: [foo.pdf][foo.pdf] → [foo.pdf]
+    result = re.sub(r'(\[[^\]\[]+\])(?:\s*\1)+', r'\1', result)
+    return result
 
 
 def _render_markdown(text: str, sources: list | None = None) -> Markup:
@@ -224,12 +234,20 @@ def _vector_store() -> VectorStore:
 # Session + conversation helpers
 # --------------------------------------------------------------------------- #
 def _session_id(request: Request) -> str:
+    # Cache on request.state so multiple calls within one request return the same ID.
+    # Without this, a fresh visitor gets a different UUID in render() vs chat_page(),
+    # making the CSRF token (derived from session_id) mismatch the cookie.
+    if hasattr(request.state, "session_id"):
+        return request.state.session_id
     raw = request.cookies.get("sid")
     if raw:
         verified = _unsign(raw)
         if verified:
+            request.state.session_id = verified
             return verified
-    return str(uuid.uuid4())
+    sid = str(uuid.uuid4())
+    request.state.session_id = sid
+    return sid
 
 
 def _load_conversation(session_id: str) -> list:
@@ -277,25 +295,11 @@ def _set_session_cookie(response: Response, session_id: str) -> None:
     )
 
 
-def _set_csrf_cookie(response: Response, signed_token: str) -> None:
-    s = get_settings()
-    response.set_cookie(
-        "csrf",
-        signed_token,
-        httponly=False,  # must be readable by JS for non-htmx forms
-        samesite="strict",
-        secure=(s.environment == "production"),
-        max_age=86400,
-    )
-
-
 def render(request: Request, name: str, **context) -> HTMLResponse:
-    # Ensure every page render has a CSRF token available to templates
-    csrf_plain, csrf_signed = _new_csrf_token()
-    ctx = {"csrf_token": csrf_plain, **context}
-    resp = templates.TemplateResponse(request=request, name=name, context=ctx)
-    _set_csrf_cookie(resp, csrf_signed)
-    return resp
+    session_id = _session_id(request)
+    csrf_token = _csrf_for_session(session_id)
+    ctx = {"csrf_token": csrf_token, **context}
+    return templates.TemplateResponse(request=request, name=name, context=ctx)
 
 
 # --------------------------------------------------------------------------- #
@@ -321,10 +325,11 @@ def chat_page(request: Request) -> HTMLResponse:
 @app.post("/v2/chat/new", response_class=HTMLResponse)
 async def chat_new(request: Request, csrf_token: str = Form(default="")) -> RedirectResponse:
     _require_auth(request)
-    # Accept CSRF token from header (htmx) or hidden form field (plain HTML form)
+    # Accept token from X-CSRF-Token header (htmx) or hidden form field (plain POST)
+    session_id = _session_id(request)
+    expected = _csrf_for_session(session_id)
     header_token = request.headers.get("X-CSRF-Token") or csrf_token
-    cookie_token = _csrf_token_from_cookie(request)
-    if not cookie_token or not secrets.compare_digest(cookie_token, header_token):
+    if not secrets.compare_digest(expected, header_token):
         raise HTTPException(status_code=403, detail="CSRF token invalid or missing")
     new_sid = str(uuid.uuid4())
     _save_conversation(new_sid, [])
@@ -415,11 +420,15 @@ async def ingest(request: Request, file: UploadFile) -> HTMLResponse:
             last_error=f"File exceeds the {s.max_file_size_mb} MB size limit.",
         )
 
-    # Stream into memory with a hard cap to guard against spoofed file.size
+    # Stream into memory in 1 MB pieces with a hard cap (guards against spoofed file.size)
+    _CHUNK = 1024 * 1024
     chunks: list[bytes] = []
     total = 0
-    async for chunk in file:
-        total += len(chunk)
+    while True:
+        piece = await file.read(_CHUNK)
+        if not piece:
+            break
+        total += len(piece)
         if total > max_bytes:
             return render(
                 request, "_doc_list.html",
@@ -427,7 +436,7 @@ async def ingest(request: Request, file: UploadFile) -> HTMLResponse:
                 last_status="failed",
                 last_error=f"File exceeds the {s.max_file_size_mb} MB size limit.",
             )
-        chunks.append(chunk)
+        chunks.append(piece)
     content = b"".join(chunks)
 
     status = "failed"

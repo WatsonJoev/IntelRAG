@@ -5,21 +5,99 @@
 <h1 class="text-xl font-semibold mb-4">Documents</h1>
 
 <form
-  class="bg-panel border border-line rounded-lg p-4 mb-6 flex items-center gap-3"
+  id="upload-form"
+  class="bg-panel border border-line rounded-lg p-4 mb-6"
   hx-post="/v2/api/ingest"
   hx-target="#doc-list"
   hx-encoding="multipart/form-data"
-  hx-indicator="#uploading"
-  hx-on::after-request="this.reset()"
+  hx-indicator="#upload-progress"
+  hx-on::after-request="onUploadDone()"
 >
-  <input
-    type="file" name="file" required
-    class="flex-1 text-sm text-muted file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0
-           file:bg-brand file:text-white file:text-sm hover:file:bg-blue-500"
-  />
-  <button class="bg-brand hover:bg-blue-500 text-white px-5 py-2 rounded-md text-sm font-medium">Upload</button>
-  <span id="uploading" class="htmx-indicator text-muted text-sm animate-pulse">Ingesting…</span>
+  <div class="flex items-center gap-3">
+    <input
+      type="file" name="file" id="file-input" required
+      class="flex-1 text-sm text-muted file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0
+             file:bg-brand file:text-white file:text-sm hover:file:bg-blue-500 cursor-pointer"
+    />
+    <button
+      id="upload-btn"
+      disabled
+      class="bg-brand hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed
+             text-white px-5 py-2 rounded-md text-sm font-medium transition-opacity shrink-0"
+    >Upload</button>
+  </div>
+
+  <!-- Progress bar — hidden until upload starts (controlled by htmx-indicator) -->
+  <div id="upload-progress" class="htmx-indicator mt-3">
+    <div class="flex justify-between text-xs text-muted mb-1.5">
+      <span id="upload-phase">Uploading…</span>
+      <span id="upload-pct">0%</span>
+    </div>
+    <div class="w-full bg-line rounded-full h-1.5 overflow-hidden">
+      <div id="upload-bar" class="h-full rounded-full bg-brand" style="width: 0%; transition: width 0.2s ease;"></div>
+    </div>
+  </div>
 </form>
+
+<style>
+  /* Stripe animation for the server-side indexing phase */
+  @keyframes bar-stripes {
+    from { background-position: 28px 0; }
+    to   { background-position: 0 0; }
+  }
+  #upload-bar.indexing {
+    width: 100% !important;
+    background-image: linear-gradient(
+      45deg,
+      rgba(255,255,255,.18) 25%, transparent 25%,
+      transparent 50%, rgba(255,255,255,.18) 50%,
+      rgba(255,255,255,.18) 75%, transparent 75%, transparent
+    );
+    background-size: 28px 28px;
+    animation: bar-stripes 0.6s linear infinite;
+    transition: none;
+  }
+</style>
+
+<script>
+  var _bar   = document.getElementById('upload-bar');
+  var _phase = document.getElementById('upload-phase');
+  var _pct   = document.getElementById('upload-pct');
+
+  // Enable Upload button only when a file is actually chosen
+  document.getElementById('file-input').addEventListener('change', function () {
+    document.getElementById('upload-btn').disabled = !this.files.length;
+  });
+
+  // Fill the bar as bytes arrive at the server
+  document.body.addEventListener('htmx:xhr:progress', function (e) {
+    if (!e.detail.lengthComputable) return;
+    var pct = Math.round(e.detail.loaded / e.detail.total * 100);
+    _bar.style.width = pct + '%';
+    _pct.textContent  = pct + '%';
+  });
+
+  // Upload transfer finished — server is now indexing (indeterminate phase)
+  document.body.addEventListener('htmx:xhr:loadend', function () {
+    _phase.textContent = 'Indexing…';
+    _pct.textContent   = '';
+    _bar.classList.add('indexing');
+  });
+
+  // Server responded — clean up regardless of success/error
+  function onUploadDone() {
+    _bar.classList.remove('indexing');
+    _bar.style.width   = '0%';
+    _bar.style.transition = 'none';           // instant reset
+    _phase.textContent = 'Uploading…';
+    _pct.textContent   = '0%';
+    document.getElementById('upload-btn').disabled = true;
+    // re-enable transition on next frame
+    requestAnimationFrame(function () {
+      _bar.style.transition = 'width 0.2s ease';
+    });
+  }
+</script>
 
 <div id="doc-list" class="bg-panel border border-line rounded-lg p-4">
   {% include "_doc_list.html" %}
